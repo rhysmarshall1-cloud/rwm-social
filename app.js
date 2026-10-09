@@ -51,7 +51,7 @@ function render(){
   const meta=document.createElement('p');meta.textContent=(p.business==='solar'?'RWM Solar':'RWM Landscaping')+' · '+statusLabels[p.status||'draft']+' · '+p.platform+' · '+(p.at?new Date(p.at).toLocaleString():'No planned date');
   const caption=document.createElement('p');caption.textContent=p.caption||'Caption awaiting preparation.';
   const edit=document.createElement('button');edit.className='btn secondary';edit.textContent='Edit / review';edit.onclick=()=>editPost(p);
-  card.append(title,meta,caption,edit);
+  card.append(title,meta,caption,edit);if(p.photoWarnings?.length){const warning=document.createElement('p');warning.className='notice';warning.textContent=p.photoWarnings.join(' ');card.append(warning)}
   if((p.status||'draft')==='draft'){
    const approve=document.createElement('button');approve.className='btn';approve.textContent='Approve draft';
    approve.onclick=async()=>{if(!p.consent||!(p.caption||'').trim()){toast('Add a caption and confirm photo permission before approving.');return}if(p.platform.includes('Instagram')&&!p.photos?.before&&!p.photos?.after){toast('Add a photo before approving an Instagram post.');return}if(await persistQueue(posts.map(x=>x.id===p.id?{...x,status:'approved',approvedAt:new Date().toISOString()}:x)))toast('Approved for your queue. Publishing is not connected yet.')};card.append(approve);
@@ -122,3 +122,4 @@ $('#loadOpsJobs').onclick=async()=>{
   }
  }catch(error){$('#opsJobList').textContent=error.message}finally{saving=false}
 };
+
