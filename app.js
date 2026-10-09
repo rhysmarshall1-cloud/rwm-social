@@ -13,7 +13,7 @@ $('#prev').onclick=()=>{month.setMonth(month.getMonth()-1);renderCalendar()};$('
 
 let editingId=null;let editingSourceJobId=null;let editingPhotoPaths={};let cloudMode=false;let saving=false;
 function editPost(p){editingId=p.id;editingSourceJobId=p.sourceJobId||null;editingPhotoPaths={...p.photoPaths};$('#business').disabled=cloudMode;$('#postTitle').value=p.title;$('#caption').value=p.caption||'';$('#business').value=p.business||'landscaping';$('#service').value=p.service||(p.business==='solar'?'Solar':'Landscaping');$('#platform').value=p.platform||'Facebook + Instagram';$('#plannedAt').value=p.at||'';photoData={...p.photos};['before','after'].forEach(k=>{const e=$('#'+k+'Preview');e.hidden=!photoData[k];if(photoData[k])e.src=photoData[k]});$('#permission').checked=!!p.consent;$('#caption').dispatchEvent(new Event('input'));go('compose')}
-function resetComposer(){editingId=null;editingSourceJobId=null;editingPhotoPaths={};$('#business').disabled=false;$('#postForm').reset();photoData={};['before','after'].forEach(k=>{ $('#'+k).value='';$('#'+k+'Preview').hidden=true; });$('#caption').dispatchEvent(new Event('input'))}
+function resetComposer(){editingId=null;editingSourceJobId=null;editingPhotoPaths={};$('#business').disabled=false;$('#postForm').reset();photoData={};['before','after'].forEach(k=>{ $('#'+k).value='';$('#'+k+'Preview').hidden=true;$('#'+k+'Preview').src=''; });$('#caption').dispatchEvent(new Event('input'))}
 $('#newPost').onclick=()=>{resetComposer();go('compose')};
 document.querySelectorAll('[data-go="compose"]').forEach(b=>b.onclick=()=>{resetComposer();go('compose')});
 $('#business').onchange=()=>{$('#service').value=$('#business').value==='solar'?'Solar':'Landscaping'};
