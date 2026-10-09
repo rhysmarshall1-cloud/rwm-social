@@ -1,19 +1,32 @@
 # RWM SOCIAL
 
-RWM social planning application. Deploy as a static site on Vercel: framework Other, no build command, output directory root.
+Static social content planning app, with Supabase owner login and company data. Deploy the repository to Vercel using framework Other, no build command, no install command, and output directory `.`.
 
-## Working today
-Manual before/after photo selection, editable template captions, browser-local drafts, draft editing and approval, business/status/day queue filters, clickable planned content counts, business-tagged monthly calendar, and intended Facebook/Instagram account pairings.
+## Implemented
+- Local planning without login; owner login using the existing RWM OPS identity.
+- Explicit company selection; cloud business and post data protected by row security.
+- Separate Landscaping and Solar content namespaces, with Facebook + Instagram as the default destinations.
+- Draft editing, approval, return to draft, and company/date/status queue filters.
+- Monthly counts for posts to write, drafts and approved items. Calendar counts open matching content.
+- Private JPG/PNG/WEBP uploads up to 3 MB; business-specific storage paths and 30-minute preview URLs.
+- Completed OPS jobs and latest available before/after photos can populate the composer. No customer contact details or address are automatically included in captions.
+- Explicit marketing permission before saving job photos as a social draft.
+- Optimistic updates reject stale edits from another device. Editing approved content resets it to draft on the server.
+- Local drafts import only after the owner chooses a company and confirms the import. Imported content requires fresh review.
 
-## Not yet connected
-Meta OAuth, publishing, publication receipts and analytics, cloud persistence, and RWM OPS completed jobs/photo integration. A planned calendar date does not trigger publication. The current business tags are not security isolation; separate authorized workspaces are required before external customers use it.
+## Not connected
+Meta OAuth, actual Facebook/Instagram publishing, scheduled execution, publication receipts, live analytics and AI caption generation. Captions currently use a template. An approved post does not publish. The Posted calendar category is reserved for future confirmed provider receipts, not a manual success toggle.
 
-## Next implementation
-Secure shared identity and company permissions; server-side media/drafts; Meta app authorization with server-side token handling; approved dual-platform publishing with independent receipts; scheduled publishing and retry handling; OPS photo selection with marketing consent; live analytics.
+## Credentials
+`config.js` contains only the project's public publishable key. User access/refresh tokens stay in memory and are validated server-side. Closing/reloading the page requires login again. No passwords, service-role keys, Meta tokens or Meta secrets are committed or persisted by this app.
 
-Never store provider secrets or access tokens in frontend code or browser storage.
+## Database
+`database/social-foundation.sql` and `database/social-cloud-media.sql` document the applied changes in the shared OPS Supabase project. Company owner policies enforce data access, and source jobs must be completed jobs in the same company. New business records are initialized only after an owner explicitly selects a company.
 
-## Database foundation
-`database/social-foundation.sql` is applied to the shared OPS Supabase project. Business and post tables use company ownership policies, a composite company/business foreign key, immutable post business ownership, and approval consent/caption guards. No anonymous access is granted. The static UI still uses browser storage; authenticated cloud persistence and media storage are the next integration. No Meta tokens or live posts exist in these tables.
+## Verification
+Run `node tests/queue-runtime.cjs` and `node tests/cloud-client.cjs`. These verify local runtime behavior and the cloud client against mocked API responses. Live database checks passed for owner access, unauthorized denial, business-specific media paths, approval reset and Instagram media requirements, using rolled-back fixtures. Supabase security advisors report no findings specific to the new social objects.
 
-Verification: owner read/update, unauthorized read/write denial, and approval guard tested with rolled-back fixtures. Existing OPS functions and auth password advisories are unrelated to these new tables.
+Real owner-login/upload/job-import browser acceptance remains to be done after hosting is connected. Browser visual testing was unavailable because the browser download failed; this is not a claim of end-to-end production verification.
+
+## Next session
+See `NEXT-STEPS.md` for deployment, acceptance and Meta setup requirements.
