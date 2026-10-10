@@ -43,3 +43,10 @@ Nothing has been published to Facebook or Instagram, and no sample analytics are
 - Confirm before discarding unsaved composer changes and warn before leaving the page.
 - Reject empty photos; block saving while photos load; ignore old file reads after replacement, removal or composer reset.
 - Expanded mocked runtime checks cover the above. Meta publishing and real browser acceptance are still pending.
+
+## Completed weekly planning and bulk review
+- Weekly agenda with previous/next/current week navigation; calendar business filter and month status totals.
+- Queue pages of 20 items and selections restricted to the active filter; select the current page or clear selections.
+- Move selected dates, clear selected dates and return selected approved items to draft. Date changes revoke approval; no bulk approval or publishing.
+- Download a versioned text-plan JSON backup and restore missing items with validation, company checks and stable IDs to avoid repeat imports. Photos, source job links and permission are deliberately excluded; restored approved/posted items become drafts for review.
+- Backups retain device-local date strings and record the source timezone. These are content-plan backups, not media/database backups.
