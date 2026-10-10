@@ -33,3 +33,13 @@ Nothing has been published to Facebook or Instagram, and no sample analytics are
 - Caption character count and separate Solar/Landscaping caption templates.
 - Jump to a calendar month, return to this month and plan content from individual days.
 - Automated queue regression checks cover these interactions. Real browser acceptance remains outstanding after hosting.
+
+## Completed OPS-to-post and queue safeguards
+- Search loaded completed jobs and paginate beyond the first 50 results.
+- Recognize jobs already queued for the selected business; open the existing post or hide queued jobs.
+- Show per-business to-write/draft/approved totals and past planned dates; filter past planned dates.
+- Show readiness checks and prevent approval of oversized Instagram captions or unsupported destinations.
+- Copy captions and export the filtered queue to CSV without private media links, with formula-like text escaped.
+- Confirm before discarding unsaved composer changes and warn before leaving the page.
+- Reject empty photos; block saving while photos load; ignore old file reads after replacement, removal or composer reset.
+- Expanded mocked runtime checks cover the above. Meta publishing and real browser acceptance are still pending.
