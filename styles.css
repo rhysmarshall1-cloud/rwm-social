@@ -5,3 +5,5 @@
 
 
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #168c99;outline-offset:2px}.post>.btn{margin:4px 6px 4px 0}#calendar .card>.row{flex-wrap:wrap}#captionCount{display:block;color:#687181;margin:6px 0}.calendar-count{min-height:32px}button:disabled{opacity:.55;cursor:wait}
+
+#businessSummary{grid-template-columns:repeat(2,minmax(0,1fr))}.agenda-day{padding:16px 0;border-bottom:1px solid #e3e7ed}.agenda-day>.btn{display:block;margin:8px 0;text-align:left;width:100%}.day.today{outline:2px solid #168c99;background:#e7f5f5}details{margin-top:20px}summary{cursor:pointer;font-weight:600}.calendar{overflow-x:auto}.day{min-width:90px}@media(max-width:600px){#businessSummary{grid-template-columns:1fr}.calendar{grid-template-columns:repeat(7,minmax(90px,1fr))}.row{flex-wrap:wrap}}
