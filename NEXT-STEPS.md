@@ -23,3 +23,13 @@
 - Photo retention/cleanup and larger/resumable uploads if required. Deleted posts currently leave private media for later cleanup; no public access is granted.
 
 Nothing has been published to Facebook or Instagram, and no sample analytics are presented as real data.
+
+
+## Completed content review improvements
+- Search titles and captions; sort by planned date or title; show unscheduled items.
+- Duplicate content as a fresh draft without inheriting approval, consent, date or OPS job association.
+- Change dates from the queue, returning approved content to draft for review.
+- Remove either photo from the composer and cancel edits without saving.
+- Caption character count and separate Solar/Landscaping caption templates.
+- Jump to a calendar month, return to this month and plan content from individual days.
+- Automated queue regression checks cover these interactions. Real browser acceptance remains outstanding after hosting.
