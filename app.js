@@ -27,18 +27,30 @@ $('#accountList').replaceChildren();for(const [name,fb,ig] of [['RWM Landscaping
 const info=document.createElement('p');info.className='notice';info.textContent='Connection requires the RWM SOCIAL Meta developer app, a secure authorization callback and your Facebook approval. No access tokens are stored in this browser.';$('#accountList').append(info);
 
 // Queue review and date filters. Publishing status is reserved for provider receipts.
-let queueFilter={business:'all',status:'all',date:''};let queueSearch='',queueSort='newest',queueUndated=false,queueOverdue=false;
+let queueFilter={business:'all',status:'all',date:''};let queueSearch='',queueSort='newest',queueUndated=false,queueOverdue=false;let queuePage=0;const queuePageSize=20,selectedPosts=new Set();let calendarBusiness='all';let agendaDay=SocialTools.dayString(new Date());
 const statusLabels={to_write:'To write',draft:'Draft',approved:'Approved',posted:'Posted'};
 const filterBar=document.createElement('div');filterBar.className='row';filterBar.style.flexWrap='wrap';
 filterBar.innerHTML='<select id="queueBusiness" aria-label="Filter business" style="width:auto"><option value="all">All businesses</option><option value="solar">RWM Solar</option><option value="landscaping">RWM Landscaping</option></select><select id="queueStatus" aria-label="Filter status" style="width:auto"><option value="all">All statuses</option><option value="to_write">To write</option><option value="draft">Drafts</option><option value="approved">Approved</option><option value="posted">Posted</option></select><input id="queueDate" type="date" aria-label="Filter planned day" style="width:auto"><button id="clearQueueFilter" class="btn secondary">Clear filters</button>';
 const searchBar=document.createElement('div');searchBar.className='row';searchBar.style.flexWrap='wrap';
 searchBar.innerHTML='<input id="queueSearch" type="search" maxlength="200" aria-label="Search titles and captions" placeholder="Search titles and captions" style="width:auto"><select id="queueSort" aria-label="Queue order" style="width:auto"><option value="newest">Newest first</option><option value="planned">Planned date first</option><option value="title">Title A–Z</option></select><label class="row" style="margin:0"><input id="queueUndated" type="checkbox">Unscheduled only</label><label class="row" style="margin:0"><input id="queueOverdue" type="checkbox">Past planned dates</label><button id="exportQueue" class="btn secondary">Export filtered queue</button>';
 const businessSummary=document.createElement('div');businessSummary.id='businessSummary';businessSummary.className='grid';$('#queue').before(businessSummary,filterBar,searchBar);
-$('#queueSearch').oninput=()=>{queueSearch=$('#queueSearch').value;render()};
-$('#queueSort').onchange=()=>{queueSort=$('#queueSort').value;render()};
-$('#queueUndated').onchange=()=>{queueUndated=$('#queueUndated').checked;if(queueUndated){queueOverdue=false;$('#queueOverdue').checked=false;queueFilter.date='';$('#queueDate').value=''}render()};
-$('#queueOverdue').onchange=()=>{queueOverdue=$('#queueOverdue').checked;if(queueOverdue){queueUndated=false;$('#queueUndated').checked=false;queueFilter.date='';$('#queueDate').value=''}render()};
+$('#queueSearch').oninput=()=>{queuePage=0;queueSearch=$('#queueSearch').value;render()};
+$('#queueSort').onchange=()=>{queuePage=0;queueSort=$('#queueSort').value;render()};
+$('#queueUndated').onchange=()=>{queuePage=0;queueUndated=$('#queueUndated').checked;if(queueUndated){queueOverdue=false;$('#queueOverdue').checked=false;queueFilter.date='';$('#queueDate').value=''}render()};
+$('#queueOverdue').onchange=()=>{queuePage=0;queueOverdue=$('#queueOverdue').checked;if(queueOverdue){queueUndated=false;$('#queueUndated').checked=false;queueFilter.date='';$('#queueDate').value=''}render()};
 $('#exportQueue').onclick=()=>{const filtered=SocialTools.filterQueue(posts,queueFilter,queueSearch,queueSort,queueUndated,queueOverdue);const url=URL.createObjectURL(new Blob(['\uFEFF'+SocialTools.csv(filtered)],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download='rwm-social-queue.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Exported '+filtered.length+' content items. Photo links are excluded.')};
+const bulkBar=document.createElement('div');bulkBar.className='notice';bulkBar.innerHTML='<div class="row" style="flex-wrap:wrap"><span id="selectedCount" role="status">0 selected</span><button id="selectPage" class="btn secondary">Select this page</button><button id="clearSelection" class="btn secondary">Clear selection</button></div><form id="bulkDateForm" class="row" style="flex-wrap:wrap"><input id="bulkDate" type="datetime-local" required aria-label="New planned date for selected posts" style="width:auto"><button class="btn secondary">Move selected posts</button></form><button id="bulkClearDate" class="btn secondary">Clear selected dates</button><button id="bulkReturnDraft" class="btn secondary">Return selected to draft</button><small style="display:block">Changing a date returns approved posts to draft. Businesses remain separate; nothing publishes automatically.</small>';
+$('#queue').before(bulkBar);
+function updateSelected(){$('#selectedCount').textContent=selectedPosts.size+' selected'}
+function visibleQueuePage(){return SocialTools.filterQueue(posts,queueFilter,queueSearch,queueSort,queueUndated,queueOverdue).slice(queuePage*queuePageSize,(queuePage+1)*queuePageSize)}
+$('#selectPage').onclick=()=>{if(saving)return;for(const p of visibleQueuePage())if(p.status!=='posted')selectedPosts.add(p.id);render()};$('#clearSelection').onclick=()=>{if(saving)return;selectedPosts.clear();render()};$('#queuePrevious').onclick=()=>{if(queuePage>0){queuePage--;render()}};$('#queueNext').onclick=()=>{queuePage++;render()};
+async function changeSelected(action,at=''){
+ if(saving)return;if(!selectedPosts.size){toast('Select at least one content item.');return}let next;try{next=SocialTools.bulk(posts,selectedPosts,action,at)}catch(error){toast(error.message);return}const changed=next.filter((p,i)=>p!==posts[i]);if(!changed.length){toast('No selected items need this change.');return}
+ if(!confirm('Update '+changed.length+' selected items? Approved items affected by this change will need review again.'))return;
+ if(editingId&&changed.some(p=>p.id===editingId)){if(!guardComposer())return;resetComposer()}
+ if(await persistQueue(next)){selectedPosts.clear();render();toast('Updated '+changed.length+' content items.')}
+}
+$('#bulkDateForm').onsubmit=async e=>{e.preventDefault();return changeSelected('move',$('#bulkDate').value)};$('#bulkClearDate').onclick=()=>changeSelected('clear');$('#bulkReturnDraft').onclick=()=>changeSelected('draft');
 function plannedDay(post){return (post.at||'').slice(0,10)}
 async function persistQueue(next){
  if(saving)return false;saving=true;
@@ -48,7 +60,7 @@ async function persistQueue(next){
   render();renderCalendar();if(cloudMode)renderOpsJobs();return true;
  }catch(error){toast(error.message);if(cloudMode){try{posts=await SocialCloud.load();render();renderCalendar();renderOpsJobs()}catch{}}return false}finally{saving=false}
 }
-function setQueueFilter(filter){queueSearch='';queueUndated=false;queueOverdue=false;$('#queueOverdue').checked=false;$('#queueSearch').value='';$('#queueUndated').checked=false;queueFilter=filter;$('#queueBusiness').value=filter.business;$('#queueStatus').value=filter.status;$('#queueDate').value=filter.date;render()}
+function setQueueFilter(filter){queuePage=0;selectedPosts.clear();queueSearch='';queueUndated=false;queueOverdue=false;$('#queueOverdue').checked=false;$('#queueSearch').value='';$('#queueUndated').checked=false;queueFilter=filter;$('#queueBusiness').value=filter.business;$('#queueStatus').value=filter.status;$('#queueDate').value=filter.date;render()}
 ['queueBusiness','queueStatus','queueDate'].forEach(id=>$('#'+id).onchange=()=>setQueueFilter({business:$('#queueBusiness').value,status:$('#queueStatus').value,date:$('#queueDate').value}));
 $('#clearQueueFilter').onclick=()=>setQueueFilter({business:'all',status:'all',date:''});
 function render(){
@@ -57,9 +69,12 @@ function render(){
  $('#businessSummary').replaceChildren();for(const business of ['solar','landscaping']){const counts=SocialTools.summary(posts,business);const card=document.createElement('div');card.className='card';const name=document.createElement('strong');name.textContent=business==='solar'?'RWM Solar':'RWM Landscaping';const text=document.createElement('p');text.textContent=counts.to_write+' to write · '+counts.draft+' drafts · '+counts.approved+' approved · '+counts.overdue+' past planned dates';card.append(name,text);$('#businessSummary').append(card)}
  $('#queue').replaceChildren();
  const filtered=SocialTools.filterQueue(posts,queueFilter,queueSearch,queueSort,queueUndated,queueOverdue);
+ for(const id of selectedPosts)if(!filtered.some(p=>p.id===id&&p.status!=='posted'))selectedPosts.delete(id);
+ const pages=Math.max(1,Math.ceil(filtered.length/queuePageSize));queuePage=Math.min(queuePage,pages-1);const pagePosts=filtered.slice(queuePage*queuePageSize,(queuePage+1)*queuePageSize);$('#queuePage').textContent='Page '+(queuePage+1)+' of '+pages+' · '+filtered.length+' items';$('#queuePrevious').disabled=queuePage===0;$('#queueNext').disabled=queuePage>=pages-1;updateSelected();
  if(!filtered.length){const e=document.createElement('p');e.className='empty';e.textContent=posts.length?'No content matches these filters.':'Create a draft or add a post to write from the calendar.';$('#queue').append(e)}
- for(const p of filtered){
+ for(const p of pagePosts){
   const card=document.createElement('div');card.className='post';
+  if(p.status!=='posted'){const label=document.createElement('label');label.className='row';const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.style.width='auto';checkbox.checked=selectedPosts.has(p.id);checkbox.setAttribute('aria-label','Select '+p.title);checkbox.onchange=()=>{if(saving){checkbox.checked=selectedPosts.has(p.id);return}if(checkbox.checked)selectedPosts.add(p.id);else selectedPosts.delete(p.id);updateSelected()};const text=document.createElement('span');text.textContent='Select item';label.append(checkbox,text);card.append(label)}
   const title=document.createElement('strong');title.textContent=p.title;
   const meta=document.createElement('p');meta.textContent=(p.business==='solar'?'RWM Solar':'RWM Landscaping')+' · '+statusLabels[p.status||'draft']+' · '+p.platform+' · '+(p.at?new Date(p.at).toLocaleString():'No planned date');
   const caption=document.createElement('p');caption.textContent=p.caption||'Caption awaiting preparation.';
@@ -76,6 +91,7 @@ function render(){
  }
 };
 function renderCalendar(){
+ const calendarPosts=posts.filter(p=>calendarBusiness==='all'||(p.business||'landscaping')===calendarBusiness);const prefix=month.getFullYear()+'-'+String(month.getMonth()+1).padStart(2,'0');const monthly=calendarPosts.filter(p=>(p.at||'').startsWith(prefix+'-'));$('#monthTotals').textContent=Object.entries(statusLabels).map(([status,label])=>monthly.filter(p=>(p.status||'draft')===status).length+' '+label).join(' · ');
  $('#jumpMonth').value=month.getFullYear()+'-'+String(month.getMonth()+1).padStart(2,'0');$('#monthLabel').textContent=month.toLocaleDateString(undefined,{month:'long',year:'numeric'});$('#month').replaceChildren();
  for(const label of ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']){const b=document.createElement('b');b.textContent=label;$('#month').append(b)}
  for(let i=0;i<month.getDay();i++)$('#month').append(document.createElement('div'));
@@ -83,8 +99,9 @@ function renderCalendar(){
  for(let day=1;day<=count;day++){
   const cell=document.createElement('div');cell.className='day';const label=document.createElement('b');label.textContent=day;cell.append(label);
   const date=[month.getFullYear(),String(month.getMonth()+1).padStart(2,'0'),String(day).padStart(2,'0')].join('-');
+  if(date===SocialTools.dayString(new Date())){cell.classList.add('today');label.textContent=day+' · Today'}
   for(const business of ['solar','landscaping']){
-   const matching=posts.filter(p=>(p.business||'landscaping')===business&&plannedDay(p)===date);if(!matching.length)continue;
+   const matching=calendarPosts.filter(p=>(p.business||'landscaping')===business&&plannedDay(p)===date);if(!matching.length)continue;
    const heading=document.createElement('strong');heading.textContent=business==='solar'?'Solar':'Landscaping';cell.append(heading);
    for(const [status,text] of Object.entries(statusLabels)){
     const n=matching.filter(p=>(p.status||'draft')===status).length;if(!n)continue;
@@ -92,8 +109,9 @@ function renderCalendar(){
     button.onclick=()=>{setQueueFilter({business,status,date});go('overview')};cell.append(button);
    }
   }
-  const add=document.createElement('button');add.className='calendar-count';add.textContent='+ Plan content';add.setAttribute('aria-label','Plan content for '+date);add.onclick=()=>{$('#ideaDate').value=date;$('#ideaCount').focus()};cell.append(add);$('#month').append(cell);
+  const add=document.createElement('button');add.className='calendar-count';add.textContent='+ Plan content';add.setAttribute('aria-label','Plan content for '+date);add.onclick=()=>{$('#ideaDate').value=date;if(calendarBusiness!=='all')$('#ideaBusiness').value=calendarBusiness;$('#ideaCount').focus()};cell.append(add);$('#month').append(cell);
  }
+ renderAgenda();
 };
 render();
 
@@ -154,3 +172,21 @@ $('#jumpMonth').onchange=()=>{const value=$('#jumpMonth').value;if(!/^\d{4}-\d{2
 function guardComposer(){return !composerDirty||confirm('Discard the unsaved changes in your composer?')}
 $('#postForm').addEventListener('input',()=>{composerDirty=true});$('#postForm').addEventListener('change',()=>{composerDirty=true});
 window.addEventListener('beforeunload',event=>{if(composerDirty||Object.values(photoReading).some(Boolean)){event.preventDefault();event.returnValue=''}});
+
+function renderAgenda(){
+ $('#agendaDate').value=agendaDay;const start=SocialTools.weekStart(agendaDay);$('#weekAgenda').replaceChildren();
+ for(let i=0;i<7;i++){const day=new Date(start);day.setDate(start.getDate()+i);const date=SocialTools.dayString(day);const card=document.createElement('div');card.className='agenda-day';const heading=document.createElement('strong');heading.textContent=day.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});card.append(heading);const items=posts.filter(p=>plannedDay(p)===date&&(calendarBusiness==='all'||(p.business||'landscaping')===calendarBusiness)).sort((a,b)=>(a.at||'').localeCompare(b.at||''));if(!items.length){const empty=document.createElement('p');empty.textContent='No planned content';card.append(empty)}
+  for(const post of items){const button=document.createElement('button');button.className='btn secondary';button.textContent=(post.at||'').slice(11)+' · '+(post.business==='solar'?'Solar':'Landscaping')+' · '+(statusLabels[post.status||'draft']||'Draft')+' · '+post.title;button.onclick=()=>editPost(post);card.append(button)}$('#weekAgenda').append(card)
+ }
+}
+$('#calendarBusiness').onchange=()=>{calendarBusiness=$('#calendarBusiness').value;renderCalendar()};$('#agendaDate').onchange=()=>{if(!SocialTools.validDate($('#agendaDate').value+'T12:00'))return;agendaDay=$('#agendaDate').value;renderAgenda()};
+for(const [id,offset] of [['previousWeek',-7],['nextWeek',7]])$('#'+id).onclick=()=>{const day=new Date(agendaDay+'T12:00');day.setDate(day.getDate()+offset);agendaDay=SocialTools.dayString(day);renderAgenda()};$('#currentWeek').onclick=()=>{agendaDay=SocialTools.dayString(new Date());renderAgenda()};
+function downloadPlan(contents,type,name){const url=URL.createObjectURL(new Blob([contents],{type}));const link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+$('#backupPlan').onclick=()=>{if(saving)return;try{const contents=JSON.stringify(SocialTools.backup(posts,cloudMode?SocialCloud.company.id:null),null,2);if(new Blob([contents]).size>2*1024*1024)throw Error('This text plan exceeds 2 MB. Export the queue to CSV instead.');downloadPlan(contents,'application/json','rwm-social-text-plan.json');toast('Text plan backed up. Photos and permission records are excluded.')}catch(error){toast(error.message)}};
+$('#restorePlan').onchange=async()=>{
+ if(saving){$('#restorePlan').value='';return}const file=$('#restorePlan').files[0];if(!file)return;const companyId=cloudMode?SocialCloud.company.id:null;saving=true;
+ let incoming;try{if(!file.size||file.size>2*1024*1024)throw Error('Choose a non-empty JSON backup under 2 MB.');incoming=SocialTools.restore(JSON.parse(await file.text()),companyId)}catch(error){toast(error.message);return}finally{saving=false;$('#restorePlan').value=''}
+ const missing=incoming.filter(p=>!posts.some(x=>x.id===p.id));if(!missing.length){toast('All backup items already exist. Nothing was changed.');return}
+ if(!confirm('Restore '+missing.length+' missing items into '+(cloudMode?SocialCloud.company.name:'this browser')+'? Business labels are preserved. Photos must be added again and permission confirmed. All restored posts require review.'))return;
+ if(await persistQueue([...missing,...posts]))toast('Restored '+missing.length+' items for review. Photos are not included.')
+};
