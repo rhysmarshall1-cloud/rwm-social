@@ -30,7 +30,7 @@ const vm=require('node:vm'),fs=require('node:fs'),path=require('node:path'),asse
  assert(!requests.find(r=>r.url.includes('/auth/v1/token')).options.headers.Authorization);
  await assert.rejects(()=>cloud.savePost({...saved,title:'Changed'},{...saved,updatedAt:'stale'}),/another device/);
  await assert.rejects(()=>cloud.savePost({...saved,business:'solar'},saved),/another business/);
- assert.equal((await cloud.jobs())[0].id,42);await cloud.jobs(50);assert(requests.some(r=>r.url.includes('limit=51&offset=50')&&r.url.includes('company_id=eq.'+company)&&r.url.includes('status=eq.completed')));await assert.rejects(()=>cloud.jobs(-1),/Invalid job page/);assert((await cloud.jobPhotos(42)).before);
+ assert.equal((await cloud.jobs())[0].id,42);await cloud.jobs(50);assert(requests.some(r=>r.url.includes('limit=51&offset=50')&&r.url.includes('company_id=eq.'+company)&&r.url.includes('status=eq.Completed')));await assert.rejects(()=>cloud.jobs(-1),/Invalid job page/);assert((await cloud.jobPhotos(42)).before);
  await cloud.remove(saved);assert.equal(rows.length,0);await cloud.signOut().catch(()=>{});await assert.rejects(()=>cloud.load(),/Choose a company/);
  console.log('PASS: owner login, company lookup, private uploads, signed previews, destination mapping, stale-update rejection, business guard and OPS reads');
 })().catch(e=>{console.error(e);process.exit(1)});
