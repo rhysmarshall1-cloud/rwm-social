@@ -54,8 +54,9 @@ window.SocialCloud=(()=>{
   }catch(e){if(!committed&&uploaded.length)await request('/storage/v1/object/social-media',jsonOptions('DELETE',{prefixes:uploaded})).catch(()=>{});throw e}
  }
  async function remove(post){const rows=await request('/rest/v1/social_posts?id=eq.'+filter(post.id)+'&company_id=eq.'+filter(company.id)+'&updated_at=eq.'+filter(post.updatedAt),{method:'DELETE',headers:{Prefer:'return=representation'}});if(!rows.length)throw Error('This post changed on another device. Reload the queue.');}
- async function jobs(){return request('/rest/v1/jobs?select=id,customer_name,service,scheduled_date&company_id=eq.'+filter(company.id)+'&status=eq.completed&order=scheduled_date.desc&limit=50')}
+ async function jobs(offset=0){if(!Number.isInteger(offset)||offset<0)throw Error('Invalid job page.');return request('/rest/v1/jobs?select=id,customer_name,service,scheduled_date&company_id=eq.'+filter(company.id)+'&status=eq.completed&order=scheduled_date.desc,id.desc&limit=51&offset='+offset)}
  async function jobPhotos(jobId){const rows=await request('/rest/v1/job_photos?select=photo_type,storage_path&company_id=eq.'+filter(company.id)+'&job_id=eq.'+filter(jobId)+'&order=uploaded_at.desc');const photos={};for(const row of rows)if(['before','after'].includes(row.photo_type)&&!photos[row.photo_type])photos[row.photo_type]=await signed('job-photos',row.storage_path);return photos}
  return {signIn,signOut,selectCompany,load,savePost,remove,jobs,jobPhotos,get company(){return company}};
 })();
+
 
