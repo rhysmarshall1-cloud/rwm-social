@@ -3,8 +3,8 @@ const $=s=>document.querySelector(s);let posts=[];try{posts=JSON.parse(localStor
 function go(p){document.querySelectorAll('.section').forEach(e=>e.classList.toggle('active',e.id===p));document.querySelectorAll('nav button').forEach(e=>e.classList.toggle('active',e.dataset.page===p));$('#title').textContent=names[p];if(p==='calendar')renderCalendar()}
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>go(b.dataset.page));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));$('#newPost').onclick=()=>go('compose');function toast(t){$('#toast').textContent=t;$('#toast').style.display='block';setTimeout(()=>$('#toast').style.display='none',3500)}
 ['postTitle','caption'].forEach(id=>$('#'+id).oninput=()=>{$('#previewTitle').textContent=$('#postTitle').value||'Your next transformation';$('#previewCaption').textContent=$('#caption').value||'Your caption will appear here.'});['before','after'].forEach(id=>$('#'+id).onchange=()=>{const f=$('#'+id).files[0];if(!f)return;if(!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>3*1024*1024){toast('Please use a JPG, PNG or WEBP photo under 3 MB.');$('#'+id).value='';return}const r=new FileReader();r.onload=()=>{photoData[id]=r.result;$('#'+id+'Preview').src=r.result;$('#'+id+'Preview').hidden=false};r.readAsDataURL(f)});
-$('#suggest').onclick=()=>{$('#caption').value=`Another ${$('#service').value.toLowerCase()} project complete. Take a look at the before and after!\n\n${$('#postTitle').value||'A fresh transformation, with attention to every detail.'}\n\nReady to give your property some attention? Get in touch to discuss your next project.\n\n#RWMGroup #BeforeAndAfter`;$('#caption').dispatchEvent(new Event('input'))};$('#postForm').onsubmit=async e=>{
- e.preventDefault();if(!$('#postForm').reportValidity()||saving)return;
+$('#suggest').onclick=()=>{$('#caption').value=SocialTools.caption($('#business').value,$('#service').value,$('#postTitle').value);$('#caption').dispatchEvent(new Event('input'))};$('#postForm').onsubmit=async e=>{
+ e.preventDefault();if(!$('#postForm').reportValidity()||saving)return;if(!$('#caption').value.trim()||!$('#postTitle').value.trim()){toast('Add a title and caption before saving.');return}
  const p={id:editingId||crypto.randomUUID(),title:$('#postTitle').value,caption:$('#caption').value,service:$('#service').value,business:$('#business').value,status:'draft',platform:$('#platform').value,at:$('#plannedAt').value,photos:{...photoData},photoPaths:{...editingPhotoPaths},sourceJobId:editingSourceJobId,consent:$('#permission').checked};
  const next=editingId?posts.map(x=>x.id===editingId?p:x):[p,...posts];
  if(await persistQueue(next)){resetComposer();setQueueFilter({business:'all',status:'all',date:''});toast(cloudMode?'Draft saved to your company.':'Draft saved on this browser.');go('overview')}
@@ -12,38 +12,43 @@ $('#suggest').onclick=()=>{$('#caption').value=`Another ${$('#service').value.to
 $('#prev').onclick=()=>{month.setMonth(month.getMonth()-1);renderCalendar()};$('#next').onclick=()=>{month.setMonth(month.getMonth()+1);renderCalendar()};['Facebook','Instagram','LinkedIn','TikTok','YouTube','Google Business Profile','X','Pinterest'].forEach(n=>{const d=document.createElement('div');d.className='post';const t=document.createElement('strong');t.textContent=n;const p=document.createElement('p');p.textContent='Not connected · account linking not enabled yet';d.append(t,p);$('#accountList').append(d)});
 
 let editingId=null;let editingSourceJobId=null;let editingPhotoPaths={};let cloudMode=false;let saving=false;
-function editPost(p){editingId=p.id;editingSourceJobId=p.sourceJobId||null;editingPhotoPaths={...p.photoPaths};$('#business').disabled=cloudMode;$('#postTitle').value=p.title;$('#caption').value=p.caption||'';$('#business').value=p.business||'landscaping';$('#service').value=p.service||(p.business==='solar'?'Solar':'Landscaping');$('#platform').value=p.platform||'Facebook + Instagram';$('#plannedAt').value=p.at||'';photoData={...p.photos};['before','after'].forEach(k=>{const e=$('#'+k+'Preview');e.hidden=!photoData[k];if(photoData[k])e.src=photoData[k]});$('#permission').checked=!!p.consent;$('#caption').dispatchEvent(new Event('input'));go('compose')}
+function editPost(p){if(saving)return;editingId=p.id;editingSourceJobId=p.sourceJobId||null;editingPhotoPaths={...p.photoPaths};$('#business').disabled=cloudMode;$('#postTitle').value=p.title;$('#caption').value=p.caption||'';$('#business').value=p.business||'landscaping';$('#service').value=p.service||(p.business==='solar'?'Solar':'Landscaping');$('#platform').value=p.platform||'Facebook + Instagram';$('#plannedAt').value=p.at||'';photoData={...p.photos};['before','after'].forEach(k=>{const e=$('#'+k+'Preview');e.hidden=!photoData[k];if(photoData[k])e.src=photoData[k]});$('#permission').checked=!!p.consent;$('#caption').dispatchEvent(new Event('input'));go('compose')}
 function resetComposer(){editingId=null;editingSourceJobId=null;editingPhotoPaths={};$('#business').disabled=false;$('#postForm').reset();photoData={};['before','after'].forEach(k=>{ $('#'+k).value='';$('#'+k+'Preview').hidden=true;$('#'+k+'Preview').src=''; });$('#caption').dispatchEvent(new Event('input'))}
-$('#newPost').onclick=()=>{resetComposer();go('compose')};
-document.querySelectorAll('[data-go="compose"]').forEach(b=>b.onclick=()=>{resetComposer();go('compose')});
+$('#newPost').onclick=()=>{if(saving)return;resetComposer();go('compose')};
+document.querySelectorAll('[data-go="compose"]').forEach(b=>b.onclick=()=>{if(saving)return;resetComposer();go('compose')});
 $('#business').onchange=()=>{$('#service').value=$('#business').value==='solar'?'Solar':'Landscaping'};
 $('#ideaForm').onsubmit=async e=>{e.preventDefault();if(saving)return;const n=Number($('#ideaCount').value);if(!Number.isInteger(n)||n<1||n>20)return;const next=[...posts];for(let i=0;i<n;i++)next.push({id:crypto.randomUUID(),business:$('#ideaBusiness').value,title:($('#ideaBusiness').value==='solar'?'Solar':'Landscaping')+' post to write',caption:'',platform:'Facebook + Instagram',status:'to_write',at:$('#ideaDate').value+'T12:00',photos:{}});if(await persistQueue(next)){renderCalendar();toast('Planned posts added.')}};
 $('#accountList').replaceChildren();for(const [name,fb,ig] of [['RWM Landscaping','https://www.facebook.com/RWMlandscaping','https://www.instagram.com/rwmlandscaping/'],['RWM Solar (Facebook currently The Solar Brit)','https://www.facebook.com/profile.php?id=61583112135543','https://www.instagram.com/thesolarbritnj/']]){const d=document.createElement('div');d.className='post';const t=document.createElement('strong');t.textContent=name;d.append(t);for(const [label,url] of [['Facebook',fb],['Instagram',ig]]){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';a.textContent=label+' ↗ ';d.append(a)}const p=document.createElement('p');p.textContent='Identified for setup · not authorized or connected';d.append(p);$('#accountList').append(d)}
 const info=document.createElement('p');info.className='notice';info.textContent='Connection requires the RWM SOCIAL Meta developer app, a secure authorization callback and your Facebook approval. No access tokens are stored in this browser.';$('#accountList').append(info);
 
 // Queue review and date filters. Publishing status is reserved for provider receipts.
-let queueFilter={business:'all',status:'all',date:''};
+let queueFilter={business:'all',status:'all',date:''};let queueSearch='',queueSort='newest',queueUndated=false;
 const statusLabels={to_write:'To write',draft:'Draft',approved:'Approved',posted:'Posted'};
 const filterBar=document.createElement('div');filterBar.className='row';filterBar.style.flexWrap='wrap';
 filterBar.innerHTML='<select id="queueBusiness" aria-label="Filter business" style="width:auto"><option value="all">All businesses</option><option value="solar">RWM Solar</option><option value="landscaping">RWM Landscaping</option></select><select id="queueStatus" aria-label="Filter status" style="width:auto"><option value="all">All statuses</option><option value="to_write">To write</option><option value="draft">Drafts</option><option value="approved">Approved</option><option value="posted">Posted</option></select><input id="queueDate" type="date" aria-label="Filter planned day" style="width:auto"><button id="clearQueueFilter" class="btn secondary">Clear filters</button>';
-$('#queue').before(filterBar);
+const searchBar=document.createElement('div');searchBar.className='row';searchBar.style.flexWrap='wrap';
+searchBar.innerHTML='<input id="queueSearch" type="search" maxlength="200" aria-label="Search titles and captions" placeholder="Search titles and captions" style="width:auto"><select id="queueSort" aria-label="Queue order" style="width:auto"><option value="newest">Newest first</option><option value="planned">Planned date first</option><option value="title">Title A–Z</option></select><label class="row" style="margin:0"><input id="queueUndated" type="checkbox">Unscheduled only</label>';
+$('#queue').before(filterBar,searchBar);
+$('#queueSearch').oninput=()=>{queueSearch=$('#queueSearch').value;render()};
+$('#queueSort').onchange=()=>{queueSort=$('#queueSort').value;render()};
+$('#queueUndated').onchange=()=>{queueUndated=$('#queueUndated').checked;if(queueUndated){queueFilter.date='';$('#queueDate').value=''}render()};
 function plannedDay(post){return (post.at||'').slice(0,10)}
 async function persistQueue(next){
  if(saving)return false;saving=true;
  try{
   if(cloudMode){const saved=[];for(const p of next){const previous=posts.find(x=>x.id===p.id);saved.push(!previous||JSON.stringify(previous)!==JSON.stringify(p)?await SocialCloud.savePost(p,previous):p)}for(const old of posts)if(!next.some(p=>p.id===old.id))await SocialCloud.remove(old);posts=saved;}
   else{localStorage.setItem('rwmSocialDrafts',JSON.stringify(next));posts=next}
-  render();return true;
+  render();renderCalendar();return true;
  }catch(error){toast(error.message);if(cloudMode){try{posts=await SocialCloud.load();render()}catch{}}return false}finally{saving=false}
 }
-function setQueueFilter(filter){queueFilter=filter;$('#queueBusiness').value=filter.business;$('#queueStatus').value=filter.status;$('#queueDate').value=filter.date;render()}
+function setQueueFilter(filter){queueSearch='';queueUndated=false;$('#queueSearch').value='';$('#queueUndated').checked=false;queueFilter=filter;$('#queueBusiness').value=filter.business;$('#queueStatus').value=filter.status;$('#queueDate').value=filter.date;render()}
 ['queueBusiness','queueStatus','queueDate'].forEach(id=>$('#'+id).onchange=()=>setQueueFilter({business:$('#queueBusiness').value,status:$('#queueStatus').value,date:$('#queueDate').value}));
 $('#clearQueueFilter').onclick=()=>setQueueFilter({business:'all',status:'all',date:''});
 function render(){
  $('#draftCount').textContent=posts.filter(p=>(p.status||'draft')==='draft').length;
  $('#plannedCount').textContent=posts.filter(p=>p.at&&p.status!=='posted').length;
  $('#queue').replaceChildren();
- const filtered=posts.filter(p=>(queueFilter.business==='all'||(p.business||'landscaping')===queueFilter.business)&&(queueFilter.status==='all'||(p.status||'draft')===queueFilter.status)&&(!queueFilter.date||plannedDay(p)===queueFilter.date));
+ const filtered=SocialTools.filterQueue(posts,queueFilter,queueSearch,queueSort,queueUndated);
  if(!filtered.length){const e=document.createElement('p');e.className='empty';e.textContent=posts.length?'No content matches these filters.':'Create a draft or add a post to write from the calendar.';$('#queue').append(e)}
  for(const p of filtered){
   const card=document.createElement('div');card.className='post';
@@ -51,7 +56,9 @@ function render(){
   const meta=document.createElement('p');meta.textContent=(p.business==='solar'?'RWM Solar':'RWM Landscaping')+' · '+statusLabels[p.status||'draft']+' · '+p.platform+' · '+(p.at?new Date(p.at).toLocaleString():'No planned date');
   const caption=document.createElement('p');caption.textContent=p.caption||'Caption awaiting preparation.';
   const edit=document.createElement('button');edit.className='btn secondary';edit.textContent='Edit / review';edit.onclick=()=>editPost(p);
-  card.append(title,meta,caption,edit);if(p.photoWarnings?.length){const warning=document.createElement('p');warning.className='notice';warning.textContent=p.photoWarnings.join(' ');card.append(warning)}
+  card.append(title,meta,caption,edit);
+  const duplicate=document.createElement('button');duplicate.className='btn secondary';duplicate.textContent='Duplicate as draft';duplicate.onclick=()=>{if(saving)return;resetComposer();$('#postTitle').value=(p.title||'').slice(0,113)+' (copy)';$('#business').disabled=cloudMode;$('#caption').value=p.caption||'';$('#business').value=p.business||'landscaping';$('#service').value=p.service||'Landscaping';$('#platform').value=p.platform||'Facebook + Instagram';photoData={...p.photos};editingPhotoPaths={...p.photoPaths};['before','after'].forEach(k=>{const img=$('#'+k+'Preview');img.hidden=!photoData[k];img.src=photoData[k]||''});$('#caption').dispatchEvent(new Event('input'));go('compose');toast('Review the copy, choose a date and confirm permission before saving.')};card.append(duplicate);
+  const dateForm=document.createElement('form');dateForm.className='row';dateForm.style.flexWrap='wrap';const dateInput=document.createElement('input');dateInput.type='datetime-local';dateInput.value=p.at||'';dateInput.style.width='auto';dateInput.setAttribute('aria-label','Planned date for '+p.title);const dateSave=document.createElement('button');dateSave.className='btn secondary';dateSave.textContent='Update date';dateForm.append(dateInput,dateSave);dateForm.onsubmit=async e=>{e.preventDefault();if(saving)return;if(await persistQueue(posts.map(x=>x.id===p.id?{...x,at:dateInput.value,status:x.status==='approved'?'draft':x.status}:x)))toast('Planned date updated. Review again before approving.')};card.append(dateForm);if(p.photoWarnings?.length){const warning=document.createElement('p');warning.className='notice';warning.textContent=p.photoWarnings.join(' ');card.append(warning)}
   if((p.status||'draft')==='draft'){
    const approve=document.createElement('button');approve.className='btn';approve.textContent='Approve draft';
    approve.onclick=async()=>{if(!p.consent||!(p.caption||'').trim()){toast('Add a caption and confirm photo permission before approving.');return}if(p.platform.includes('Instagram')&&!p.photos?.before&&!p.photos?.after){toast('Add a photo before approving an Instagram post.');return}if(await persistQueue(posts.map(x=>x.id===p.id?{...x,status:'approved',approvedAt:new Date().toISOString()}:x)))toast('Approved for your queue. Publishing is not connected yet.')};card.append(approve);
@@ -61,7 +68,7 @@ function render(){
  }
 };
 function renderCalendar(){
- $('#monthLabel').textContent=month.toLocaleDateString(undefined,{month:'long',year:'numeric'});$('#month').replaceChildren();
+ $('#jumpMonth').value=month.getFullYear()+'-'+String(month.getMonth()+1).padStart(2,'0');$('#monthLabel').textContent=month.toLocaleDateString(undefined,{month:'long',year:'numeric'});$('#month').replaceChildren();
  for(const label of ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']){const b=document.createElement('b');b.textContent=label;$('#month').append(b)}
  for(let i=0;i<month.getDay();i++)$('#month').append(document.createElement('div'));
  const count=new Date(month.getFullYear(),month.getMonth()+1,0).getDate();
@@ -77,7 +84,7 @@ function renderCalendar(){
     button.onclick=()=>{setQueueFilter({business,status,date});go('overview')};cell.append(button);
    }
   }
-  $('#month').append(cell);
+  const add=document.createElement('button');add.className='calendar-count';add.textContent='+ Plan content';add.setAttribute('aria-label','Plan content for '+date);add.onclick=()=>{$('#ideaDate').value=date;$('#ideaCount').focus()};cell.append(add);$('#month').append(cell);
  }
 };
 render();
@@ -123,3 +130,11 @@ $('#loadOpsJobs').onclick=async()=>{
  }catch(error){$('#opsJobList').textContent=error.message}finally{saving=false}
 };
 
+
+
+// Composer controls keep edits reviewable without changing saved posts.
+$('#cancelEdit').onclick=()=>{if(saving)return;resetComposer();go('overview')};
+for(const kind of ['before','after'])$('#remove'+kind).onclick=()=>{if(saving)return;delete photoData[kind];delete editingPhotoPaths[kind];$('#'+kind).value='';$('#'+kind+'Preview').src='';$('#'+kind+'Preview').hidden=true;toast('Photo removed from this draft. Save to keep the change.')};
+$('#caption').addEventListener('input',()=>{$('#captionCount').textContent=$('#caption').value.length+' / 5,000 characters'});
+$('#todayMonth').onclick=()=>{month=new Date();month.setDate(1);renderCalendar()};
+$('#jumpMonth').onchange=()=>{const value=$('#jumpMonth').value;if(!/^\d{4}-\d{2}$/.test(value))return;const [year,m]=value.split('-').map(Number);month=new Date(year,m-1,1);renderCalendar()};
